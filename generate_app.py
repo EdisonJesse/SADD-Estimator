@@ -511,8 +511,8 @@ html_content = """<!DOCTYPE html>
                         <span class="kpi-value" id="kpiAffected">10,000</span>
                     </div>
                     <div class="kpi-card green">
-                        <span class="kpi-label">Est. Disability Cases (Moderate/Severe)</span>
-                        <span class="kpi-value" id="kpiDisability">542</span>
+                        <span class="kpi-label">Est. Population with Functional Difficulty</span>
+                        <span class="kpi-value" id="kpiDisability">564</span>
                     </div>
                 </div>
 
@@ -1022,17 +1022,15 @@ html_content = """<!DOCTYPE html>
             
             const colors = ['#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#38bdf8'];
             
-            // Sum Moderate and Severe for the KPI
-            // Approximate total disability cases as the maximum domain difficulty count in Moderate/Severe, 
+            // Estimate total population with functional difficulty as the maximum domain difficulty count in All, 
             // since domains can overlap on individuals.
-            let maxModSev = 0;
+            let maxDifficulty = 0;
             domains.forEach(d => {
-                const modRatio = selectedMunicipality[`Disability_${d}_Moderate_Ratio`] || 0;
-                const sevRatio = selectedMunicipality[`Disability_${d}_Severe_Ratio`] || 0;
-                const count = Math.round(pop * modRatio) + Math.round(pop * sevRatio);
-                if (count > maxModSev) maxModSev = count;
+                const allRatio = selectedMunicipality[`Disability_${d}_All_Ratio`] || 0;
+                const count = Math.round(pop * allRatio);
+                if (count > maxDifficulty) maxDifficulty = count;
             });
-            document.getElementById('kpiDisability').textContent = maxModSev.toLocaleString();
+            document.getElementById('kpiDisability').textContent = maxDifficulty.toLocaleString();
 
             domains.forEach((d, idx) => {
                 const mRatio = selectedMunicipality[`Male_Disability_${d}_${currentSeverity}_Ratio`] || 0;
