@@ -165,11 +165,11 @@ html_content = """<!DOCTYPE html>
             -webkit-backdrop-filter: blur(12px);
             border: 1px solid var(--border-glass);
             border-radius: 1rem;
-            padding: 1.75rem;
+            padding: 1.25rem 1.5rem;
             box-shadow: var(--card-shadow);
             display: flex;
             flex-direction: column;
-            gap: 1.25rem;
+            gap: 1rem;
             height: fit-content;
             min-width: 0; /* Prevents flex children from stretching container */
         }
@@ -346,7 +346,7 @@ html_content = """<!DOCTYPE html>
         /* Chart container */
         .chart-box {
             position: relative;
-            height: 250px;
+            height: 180px;
             width: 100%;
             display: flex;
             align-items: center;
@@ -372,12 +372,12 @@ html_content = """<!DOCTYPE html>
             background-color: rgba(255, 255, 255, 0.02);
             color: var(--text-secondary);
             font-weight: 600;
-            padding: 0.75rem 1rem;
+            padding: 0.5rem 0.75rem;
             border-bottom: 1px solid var(--border-glass);
         }
 
         td {
-            padding: 0.75rem 1rem;
+            padding: 0.5rem 0.75rem;
             border-bottom: 1px solid var(--border-glass);
             color: var(--text-primary);
         }
@@ -559,7 +559,7 @@ html_content = """<!DOCTYPE html>
                                 <button class="tab-btn" id="btnSevere" onclick="changeSeverityTab('Severe')">Sev</button>
                             </div>
                         </div>
-                        <div class="chart-box" style="height: 250px;">
+                        <div class="chart-box" style="height: 180px;">
                             <canvas id="disabilityChart"></canvas>
                         </div>
                         <div class="table-container">
@@ -567,12 +567,9 @@ html_content = """<!DOCTYPE html>
                                 <thead>
                                     <tr>
                                         <th>Difficulty Domain</th>
-                                        <th>Male %</th>
-                                        <th>Male Est.</th>
-                                        <th>Female %</th>
-                                        <th>Female Est.</th>
-                                        <th>Total %</th>
-                                        <th>Total Est.</th>
+                                        <th>Male Est. (%)</th>
+                                        <th>Female Est. (%)</th>
+                                        <th>Total Est. (%)</th>
                                     </tr>
                                 </thead>
                                 <tbody id="disabilityTableBody">
@@ -1048,12 +1045,9 @@ html_content = """<!DOCTYPE html>
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td style="font-weight: 500;">${labels[idx]}</td>
-                    <td>${(mRatio * 100).toFixed(3)}%</td>
-                    <td style="font-weight: 600; color: #2563eb;">${mCount.toLocaleString()}</td>
-                    <td>${(fRatio * 100).toFixed(3)}%</td>
-                    <td style="font-weight: 600; color: #c084fc;">${fCount.toLocaleString()}</td>
-                    <td>${(tRatio * 100).toFixed(3)}%</td>
-                    <td style="font-weight: 700; color:${colors[idx]}; background-color: rgba(255,255,255,0.02);">${tCount.toLocaleString()}</td>
+                    <td style="color: #2563eb;"><span style="font-weight: 600;">${mCount.toLocaleString()}</span> <span style="font-size: 0.75rem; opacity: 0.85;">(${(mRatio * 100).toFixed(2)}%)</span></td>
+                    <td style="color: #c084fc;"><span style="font-weight: 600;">${fCount.toLocaleString()}</span> <span style="font-size: 0.75rem; opacity: 0.85;">(${(fRatio * 100).toFixed(2)}%)</span></td>
+                    <td style="color:${colors[idx]}; background-color: rgba(255,255,255,0.02);"><span style="font-weight: 700;">${tCount.toLocaleString()}</span> <span style="font-size: 0.75rem; opacity: 0.85;">(${(tRatio * 100).toFixed(2)}%)</span></td>
                 `;
                 tableBody.appendChild(tr);
             });
