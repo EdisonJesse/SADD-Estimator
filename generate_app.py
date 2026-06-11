@@ -880,7 +880,7 @@ html_content = """<!DOCTYPE html>
             renderAgeChart(ageLabels, maleAgeCounts, femaleAgeCounts);
             
             // 3. Disability/Difficulty calculations
-            updateDisabilitySection(total_5_plus, male_5_plus, female_5_plus);
+            updateDisabilitySection(pop, maleCount, femaleCount);
         }
 
         // Render Sex Pie Chart
@@ -999,10 +999,10 @@ html_content = """<!DOCTYPE html>
             currentSeverity = severity;
             
             if (selectedMunicipality) {
-                const total_5_plus = lastCalculation.total_5_plus || Math.round((lastCalculation.pop || 10000) * 0.9);
-                const male_5_plus = lastCalculation.male_5_plus || Math.round((lastCalculation.maleCount || 5000) * 0.9);
-                const female_5_plus = lastCalculation.female_5_plus || Math.round((lastCalculation.femaleCount || 5000) * 0.9);
-                updateDisabilitySection(total_5_plus, male_5_plus, female_5_plus);
+                const pop = lastCalculation.pop || 10000;
+                const maleCount = lastCalculation.maleCount || 5000;
+                const femaleCount = lastCalculation.femaleCount || 5000;
+                updateDisabilitySection(pop, maleCount, femaleCount);
             }
         }
 
@@ -1029,7 +1029,7 @@ html_content = """<!DOCTYPE html>
             domains.forEach(d => {
                 const modRatio = selectedMunicipality[`Disability_${d}_Moderate_Ratio`] || 0;
                 const sevRatio = selectedMunicipality[`Disability_${d}_Severe_Ratio`] || 0;
-                const count = Math.round(pop * (modRatio + sevRatio));
+                const count = Math.round(pop * modRatio) + Math.round(pop * sevRatio);
                 if (count > maxModSev) maxModSev = count;
             });
             document.getElementById('kpiDisability').textContent = maxModSev.toLocaleString();
@@ -1208,9 +1208,9 @@ html_content = """<!DOCTYPE html>
                     const fRatio = selectedMunicipality[fKey] || 0;
                     const tRatio = selectedMunicipality[tKey] || 0;
                     
-                    const mCount = Math.round(lastCalculation.male_5_plus * mRatio);
-                    const fCount = Math.round(lastCalculation.female_5_plus * fRatio);
-                    const tCount = Math.round(lastCalculation.total_5_plus * tRatio);
+                    const mCount = Math.round(maleCount * mRatio);
+                    const fCount = Math.round(femaleCount * fRatio);
+                    const tCount = Math.round(pop * tRatio);
                     
                     csv += `Disability (${d} - Severity: ${s}),Male / Female / Total,${mRatio},${mCount},${fRatio},${fCount},${tRatio},${tCount}\\n`;
                 });
@@ -1238,5 +1238,10 @@ html_content = """<!DOCTYPE html>
 print("Writing estimator_app.html...")
 with open(html_path, 'w', encoding='utf-8') as f:
     f.write(html_content)
+print(f"Interactive HTML application generated successfully at: {html_path}")
 
-print(f"Interactive application generated successfully at: {html_path}")
+aspx_path = os.path.join(psa_dir, "estimator_app.aspx")
+print("Writing estimator_app.aspx...")
+with open(aspx_path, 'w', encoding='utf-8') as f:
+    f.write(html_content)
+print(f"SharePoint ASPX application generated successfully at: {aspx_path}")
