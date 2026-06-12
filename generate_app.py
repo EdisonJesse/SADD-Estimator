@@ -11,6 +11,11 @@ with open(json_path, 'r') as f:
 
 print(f"Loaded {len(ratios_data)} municipalities.")
 
+# Load Base64 logo
+logo_txt_path = os.path.join(psa_dir, "logo_base64.txt")
+with open(logo_txt_path, 'r') as f:
+    logo_base64 = f.read().strip()
+
 # We will generate the single-file HTML app
 html_content = """<!DOCTYPE html>
 <html lang="en">
@@ -22,8 +27,9 @@ html_content = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Chart.js CDN -->
+    <!-- CDNs -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
             --bg-primary: #0b0f19;
@@ -575,7 +581,7 @@ html_content = """<!DOCTYPE html>
 <body>
     <header>
         <div class="logo-container">
-            <div class="logo-icon">AC</div>
+            <img src='""" + logo_base64 + """' alt="ACCORD Logo" style="height: 2.5rem; border-radius: 0.25rem; background: white; padding: 2px;">
             <div class="logo-text">
                 <h1>ACCORD</h1>
                 <p>SADD Estimator</p>
@@ -680,6 +686,21 @@ html_content = """<!DOCTYPE html>
 
             <!-- Dashboard Content (hidden initially) -->
             <div id="dashboard" style="display: none;" class="results-container">
+                <!-- Branded Report Header (included in image export) -->
+                <div class="dashboard-report-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--accent); padding-bottom: 0.75rem; margin-bottom: 1rem; width: 100%;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <img src='""" + logo_base64 + """' alt="ACCORD Logo" style="height: 3rem; border-radius: 0.25rem; background: white; padding: 2px;">
+                        <div>
+                            <h2 style="font-family: 'Outfit', sans-serif; font-size: 1.4rem; font-weight: 700; border-bottom: none; padding-bottom: 0; margin: 0; color: var(--text-primary);">SADD Estimator Report</h2>
+                            <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0;">Sex, Age, and Disability Projections</p>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <p id="reportLocationLabel" style="font-size: 1.05rem; font-weight: 600; color: var(--accent); margin: 0;">Alabel, Sarangani</p>
+                        <p id="reportDateLabel" style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">Generated on: June 12, 2026</p>
+                    </div>
+                </div>
+
                 <!-- KPI cards -->
                 <div class="kpi-grid">
                     <div class="kpi-card blue">
@@ -787,10 +808,20 @@ html_content = """<!DOCTYPE html>
                 </div>
 
                 <!-- Export Action -->
-                <button class="btn" style="width: fit-content; align-self: flex-end;" onclick="exportCSV()">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    Export Full Disaggregation Report (CSV)
-                </button>
+                <div style="display: flex; gap: 1rem; align-self: flex-end; width: fit-content; margin-top: 1rem;">
+                    <button class="btn btn-secondary" onclick="exportDashboardImage()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                            <polyline points="21 15 16 10 5 21"></polyline>
+                        </svg>
+                        Export Dashboard as Image (PNG)
+                    </button>
+                    <button class="btn" onclick="exportCSV()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        Export Full Disaggregation Report (CSV)
+                    </button>
+                </div>
             </div>
 
             <!-- Computation Method Tab (hidden initially) -->
@@ -1269,11 +1300,12 @@ html_content = """<!DOCTYPE html>
             document.getElementById('dashboard').style.display = 'flex';
             
             // Update KPIs
+            const locText = `${selectedMunicipality.Municipality}, ${selectedMunicipality.Province}`;
             if (activeMode === 'single') {
-                document.getElementById('kpiLocation').textContent = `${selectedMunicipality.Municipality}, ${selectedMunicipality.Province}`;
+                document.getElementById('kpiLocation').textContent = locText;
                 document.getElementById('kpiLocation').style.fontSize = "1.25rem";
             } else {
-                document.getElementById('kpiLocation').textContent = `${selectedMunicipality.Municipality}, ${selectedMunicipality.Province}`;
+                document.getElementById('kpiLocation').textContent = locText;
                 if (selectedMunicipality.Municipality.length > 20) {
                     document.getElementById('kpiLocation').style.fontSize = "1.05rem";
                 } else {
@@ -1281,6 +1313,10 @@ html_content = """<!DOCTYPE html>
                 }
             }
             document.getElementById('kpiAffected').textContent = pop.toLocaleString();
+            
+            // Update Export Report Header Details
+            document.getElementById('reportLocationLabel').textContent = locText;
+            document.getElementById('reportDateLabel').textContent = "Generated on: " + new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
             
             // 1. Sex disaggregation calculations (Ensuring exact sum to pop)
             const maleRatio = selectedMunicipality.Male_Ratio;
@@ -1734,6 +1770,35 @@ html_content = """<!DOCTYPE html>
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+        }
+
+        function exportDashboardImage() {
+            if (!selectedMunicipality) return;
+            
+            const dashboardElement = document.getElementById('dashboard');
+            const fileNameMun = selectedMunicipality.Municipality.replace(/[\s,()]+/g, "_");
+            
+            // Temporary hide export buttons during image generation so they don't appear in the PNG
+            const exportBtns = dashboardElement.querySelector('div[style*="align-self: flex-end"]');
+            if (exportBtns) exportBtns.style.visibility = 'hidden';
+            
+            html2canvas(dashboardElement, {
+                backgroundColor: getComputedStyle(document.body).getPropertyValue('--bg-primary'),
+                scale: 2, // Double resolution for clean, crisp text and charts
+                logging: false,
+                useCORS: true
+            }).then(canvas => {
+                if (exportBtns) exportBtns.style.visibility = 'visible';
+                
+                const link = document.createElement('a');
+                link.download = `ACCORD_SADD_Dashboard_${fileNameMun}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            }).catch(err => {
+                if (exportBtns) exportBtns.style.visibility = 'visible';
+                console.error("Error generating image:", err);
+                alert("Failed to export dashboard as image.");
+            });
         }
 
         // Initialize on load
