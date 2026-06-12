@@ -634,6 +634,19 @@ html_content = """<!DOCTYPE html>
                 <input type="number" id="populationInput" min="1" placeholder="Enter total count" value="10000" oninput="calculateEstimates()">
             </div>
 
+            <div class="form-group" style="flex-direction: row; align-items: center; gap: 0.5rem; margin-top: 0.25rem; margin-bottom: 0.25rem;">
+                <input type="checkbox" id="enableBarangayBreakdown" style="width: auto; cursor: pointer;" onchange="toggleBarangayBreakdown(this.checked)">
+                <label for="enableBarangayBreakdown" style="cursor: pointer; margin-bottom: 0; user-select: none;">Breakdown by Barangay</label>
+            </div>
+
+            <div id="barangayInputsContainer" style="display: none; flex-direction: column; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <label style="font-weight: 600;">Barangay Populations</label>
+                <div id="barangayRows" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 250px; overflow-y: auto; padding-right: 0.25rem;">
+                    <!-- Dynamic rows -->
+                </div>
+                <button type="button" class="btn btn-secondary btn-small" onclick="addBarangayRow()" style="margin-top: 0.25rem;">+ Add Barangay</button>
+            </div>
+
             <div class="form-group">
                 <label for="ageDisaggregationSelect">Age Disaggregation</label>
                 <select id="ageDisaggregationSelect" onchange="onAgeDisaggregationChange(this.value)">
@@ -823,6 +836,27 @@ html_content = """<!DOCTYPE html>
                     </div>
                 </div>
 
+                <!-- Barangay Breakdown Report Card -->
+                <div class="card full-width" id="barangayReportCard" style="display: none;">
+                    <h2>Barangay SADD Projections</h2>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Barangay Name</th>
+                                    <th>Affected Population</th>
+                                    <th>Male Est.</th>
+                                    <th>Female Est.</th>
+                                    <th>Est. Pop. with Functional Difficulty</th>
+                                </tr>
+                            </thead>
+                            <tbody id="barangayReportTableBody">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- Export Action -->
                 <div style="display: flex; gap: 1rem; align-self: flex-end; width: fit-content; margin-top: 1rem;">
                     <button class="btn btn-secondary" onclick="exportDashboardImage()">
@@ -927,11 +961,98 @@ html_content = """<!DOCTYPE html>
         let multiSyntheticMun = null;
         let ageDisaggregationMode = 'standard'; // 'standard' or 'alternative'
 
+        let barangayBreakdownEnabled = false;
+        let barangayRowsData = []; // array of { id, name, pop }
+        let barangayRowIdCounter = 0;
+
         function onAgeDisaggregationChange(val) {
             ageDisaggregationMode = val;
             document.getElementById('ageDisaggregationSelect').value = val;
             document.getElementById('ageDisaggregationSelectMulti').value = val;
             calculateEstimates();
+        }
+
+        function toggleBarangayBreakdown(enabled) {
+            barangayBreakdownEnabled = enabled;
+            const container = document.getElementById('barangayInputsContainer');
+            const popInput = document.getElementById('populationInput');
+            
+            if (enabled) {
+                container.style.display = 'flex';
+                popInput.disabled = true;
+                if (barangayRowsData.length === 0) {
+                    addBarangayRow('Barangay 1', 1000);
+                } else {
+                    updateBarangayTotal();
+                }
+            } else {
+                container.style.display = 'none';
+                popInput.disabled = false;
+                calculateEstimates();
+            }
+        }
+
+        function addBarangayRow(name = '', pop = 1000) {
+            barangayRowIdCounter++;
+            const id = barangayRowIdCounter;
+            barangayRowsData.push({ id, name, pop });
+            
+            const rowsContainer = document.getElementById('barangayRows');
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'barangay-row';
+            rowDiv.id = `barangayRow_${id}`;
+            rowDiv.style.display = 'flex';
+            rowDiv.style.gap = '0.5rem';
+            rowDiv.style.alignItems = 'center';
+            rowDiv.style.marginBottom = '0.25rem';
+            
+            rowDiv.innerHTML = `
+                <input type="text" placeholder="Barangay Name" value="${name}" oninput="onBarangayInputChange(${id}, 'name', this.value)" style="flex: 2; padding: 0.5rem;">
+                <input type="number" placeholder="Population" min="1" value="${pop}" oninput="onBarangayInputChange(${id}, 'pop', this.value)" style="flex: 1.2; padding: 0.5rem;">
+                <button type="button" onclick="removeBarangayRow(${id})" style="background: transparent; border: none; color: var(--accent-danger); font-size: 1.2rem; cursor: pointer; padding: 0 0.25rem;">✕</button>
+            `;
+            rowsContainer.appendChild(rowDiv);
+            
+            updateBarangayTotal();
+        }
+
+        function removeBarangayRow(id) {
+            barangayRowsData = barangayRowsData.filter(r => r.id !== id);
+            const rowDiv = document.getElementById(`barangayRow_${id}`);
+            if (rowDiv) {
+                rowDiv.remove();
+            }
+            updateBarangayTotal();
+        }
+
+        function onBarangayInputChange(id, field, value) {
+            const row = barangayRowsData.find(r => r.id === id);
+            if (row) {
+                if (field === 'name') {
+                    row.name = value;
+                } else if (field === 'pop') {
+                    const parsed = parseInt(value);
+                    row.pop = isNaN(parsed) || parsed < 0 ? 0 : parsed;
+                }
+            }
+            updateBarangayTotal();
+        }
+
+        function updateBarangayTotal() {
+            const total = barangayRowsData.reduce((sum, r) => sum + r.pop, 0);
+            document.getElementById('populationInput').value = total;
+            calculateEstimates();
+        }
+
+        function resetBarangayBreakdown() {
+            barangayBreakdownEnabled = false;
+            barangayRowsData = [];
+            barangayRowIdCounter = 0;
+            document.getElementById('enableBarangayBreakdown').checked = false;
+            document.getElementById('barangayInputsContainer').style.display = 'none';
+            document.getElementById('barangayRows').innerHTML = '';
+            document.getElementById('populationInput').disabled = false;
+            document.getElementById('populationInput').value = '10000';
         }
 
         // Track last calculation to align UI display with CSV exports exactly
@@ -1352,31 +1473,8 @@ html_content = """<!DOCTYPE html>
             // 1. Sex disaggregation calculations (Ensuring exact sum to pop)
             const maleRatio = selectedMunicipality.Male_Ratio;
             const femaleRatio = selectedMunicipality.Female_Ratio;
-            const maleCount = Math.round(pop * maleRatio);
-            const femaleCount = pop - maleCount;
             
-            lastCalculation = {
-                pop: pop,
-                maleCount: maleCount,
-                femaleCount: femaleCount,
-                male_5_plus: 0,
-                female_5_plus: 0,
-                total_5_plus: 0,
-                ageCounts: {
-                    male: {},
-                    female: {},
-                    total: {}
-                }
-            };
-            
-            document.getElementById('maleRatio').textContent = (maleRatio * 100).toFixed(2) + "%";
-            document.getElementById('maleCount').textContent = maleCount.toLocaleString();
-            document.getElementById('femaleRatio').textContent = (femaleRatio * 100).toFixed(2) + "%";
-            document.getElementById('femaleCount').textContent = femaleCount.toLocaleString();
-            
-            renderSexChart(maleCount, femaleCount);
-            
-            // 2. Age disaggregation calculations (separating Male and Female)
+            // Age cohort preparation
             let ageLabels = [];
             let maleRatiosArr = [];
             let femaleRatiosArr = [];
@@ -1468,43 +1566,153 @@ html_content = """<!DOCTYPE html>
                 });
             }
 
+            let maleCount = 0;
+            let femaleCount = 0;
+            let maleCountsArr = [];
+            let femaleCountsArr = [];
+            let barangaysProjections = [];
+            
+            const domains = ['Seeing', 'Hearing', 'Walking', 'Remembering', 'Self_Caring', 'Communicating'];
+            const severities = ['Mild', 'Moderate', 'Severe', 'All'];
+            
+            let aggregatedDisabilityCounts = {};
+            domains.forEach(d => {
+                aggregatedDisabilityCounts[d] = {};
+                severities.forEach(s => {
+                    aggregatedDisabilityCounts[d][s] = { male: 0, female: 0, total: 0 };
+                });
+            });
+            let aggregatedMaxDifficultyAll = 0;
+
+            if (barangayBreakdownEnabled && activeMode === 'single') {
+                let aggregatedMaleAgeCounts = ageLabels.map(() => 0);
+                let aggregatedFemaleAgeCounts = ageLabels.map(() => 0);
+
+                barangayRowsData.forEach(row => {
+                    const bPop = row.pop;
+                    const bName = row.name || `Unnamed Barangay`;
+                    const bMaleCount = Math.round(bPop * maleRatio);
+                    const bFemaleCount = bPop - bMaleCount;
+                    
+                    maleCount += bMaleCount;
+                    femaleCount += bFemaleCount;
+                    
+                    const bMaleAgeCounts = distributePopulation(bMaleCount, maleRatiosArr);
+                    const bFemaleAgeCounts = distributePopulation(bFemaleCount, femaleRatiosArr);
+                    
+                    for (let i = 0; i < ageLabels.length; i++) {
+                        aggregatedMaleAgeCounts[i] += bMaleAgeCounts[i];
+                        aggregatedFemaleAgeCounts[i] += bFemaleAgeCounts[i];
+                    }
+                    
+                    let bMaxDifficultyAll = 0;
+                    domains.forEach(d => {
+                        const allRatio = selectedMunicipality[`Disability_${d}_All_Ratio`] || 0;
+                        const allCount = Math.round(bPop * allRatio);
+                        if (allCount > bMaxDifficultyAll) {
+                            bMaxDifficultyAll = allCount;
+                        }
+                        
+                        severities.forEach(s => {
+                            const mRatio = selectedMunicipality[`Male_Disability_${d}_${s}_Ratio`] || 0;
+                            const fRatio = selectedMunicipality[`Female_Disability_${d}_${s}_Ratio`] || 0;
+                            const tRatio = selectedMunicipality[`Disability_${d}_${s}_Ratio`] || 0;
+                            
+                            const mCount = Math.round(bMaleCount * mRatio);
+                            const fCount = Math.round(bFemaleCount * fRatio);
+                            const tCount = Math.round(bPop * tRatio);
+                            
+                            aggregatedDisabilityCounts[d][s].male += mCount;
+                            aggregatedDisabilityCounts[d][s].female += fCount;
+                            aggregatedDisabilityCounts[d][s].total += tCount;
+                        });
+                    });
+                    
+                    aggregatedMaxDifficultyAll += bMaxDifficultyAll;
+                    
+                    barangaysProjections.push({
+                        name: bName,
+                        pop: bPop,
+                        male: bMaleCount,
+                        female: bFemaleCount,
+                        difficulty: bMaxDifficultyAll
+                    });
+                });
+                
+                maleCountsArr = aggregatedMaleAgeCounts;
+                femaleCountsArr = aggregatedFemaleAgeCounts;
+                
+                lastCalculation = {
+                    pop: pop,
+                    maleCount: maleCount,
+                    femaleCount: femaleCount,
+                    male_5_plus: maleCount - maleCountsArr[0],
+                    female_5_plus: femaleCount - femaleCountsArr[0],
+                    total_5_plus: pop - (maleCountsArr[0] + femaleCountsArr[0]),
+                    ageKeys: ageKeys,
+                    ageLabels: ageLabels,
+                    ageRatios: {
+                        male: maleRatiosArr,
+                        female: femaleRatiosArr,
+                        total: totalRatiosArr
+                    },
+                    ageCounts: {
+                        male: maleCountsArr,
+                        female: femaleCountsArr,
+                        total: maleCountsArr.map((m, idx) => m + femaleCountsArr[idx])
+                    },
+                    disabilityCounts: aggregatedDisabilityCounts,
+                    maxDifficulty: aggregatedMaxDifficultyAll,
+                    barangays: barangaysProjections,
+                    barangayBreakdown: true
+                };
+            } else {
+                maleCount = Math.round(pop * maleRatio);
+                femaleCount = pop - maleCount;
+                maleCountsArr = distributePopulation(maleCount, maleRatiosArr);
+                femaleCountsArr = distributePopulation(femaleCount, femaleRatiosArr);
+                
+                lastCalculation = {
+                    pop: pop,
+                    maleCount: maleCount,
+                    femaleCount: femaleCount,
+                    male_5_plus: maleCount - maleCountsArr[0],
+                    female_5_plus: femaleCount - femaleCountsArr[0],
+                    total_5_plus: pop - (maleCountsArr[0] + femaleCountsArr[0]),
+                    ageKeys: ageKeys,
+                    ageLabels: ageLabels,
+                    ageRatios: {
+                        male: maleRatiosArr,
+                        female: femaleRatiosArr,
+                        total: totalRatiosArr
+                    },
+                    ageCounts: {
+                        male: maleCountsArr,
+                        female: femaleCountsArr,
+                        total: maleCountsArr.map((m, idx) => m + femaleCountsArr[idx])
+                    },
+                    barangayBreakdown: false,
+                    barangays: null
+                };
+            }
+
+            document.getElementById('maleRatio').textContent = ((maleCount / pop) * 100).toFixed(2) + "%";
+            document.getElementById('maleCount').textContent = maleCount.toLocaleString();
+            document.getElementById('femaleRatio').textContent = ((femaleCount / pop) * 100).toFixed(2) + "%";
+            document.getElementById('femaleCount').textContent = femaleCount.toLocaleString();
+            
+            renderSexChart(maleCount, femaleCount);
+
             const ageTableBody = document.getElementById('ageTableBody');
             ageTableBody.innerHTML = '';
 
             const maleAgeCounts = [];
             const femaleAgeCounts = [];
 
-            // Distribute male and female population counts separately
-            const maleCountsArr = distributePopulation(maleCount, maleRatiosArr);
-            const femaleCountsArr = distributePopulation(femaleCount, femaleRatiosArr);
-
-            // Calculate 5+ population counts (excluding 0-4 group)
-            const male_5_plus = maleCount - maleCountsArr[0];
-            const female_5_plus = femaleCount - femaleCountsArr[0];
-            const total_5_plus = pop - (maleCountsArr[0] + femaleCountsArr[0]);
-
-            lastCalculation.male_5_plus = male_5_plus;
-            lastCalculation.female_5_plus = female_5_plus;
-            lastCalculation.total_5_plus = total_5_plus;
-
-            // Save for export dynamically
-            lastCalculation.ageKeys = ageKeys;
-            lastCalculation.ageLabels = ageLabels;
-            lastCalculation.ageRatios = {
-                male: maleRatiosArr,
-                female: femaleRatiosArr,
-                total: totalRatiosArr
-            };
-            lastCalculation.ageCounts = {
-                male: maleCountsArr,
-                female: femaleCountsArr,
-                total: maleCountsArr.map((m, i) => m + femaleCountsArr[i])
-            };
-
             ageLabels.forEach((label, idx) => {
-                const mRatio = maleRatiosArr[idx];
-                const fRatio = femaleRatiosArr[idx];
-                const tRatio = totalRatiosArr[idx];
+                const mRatio = barangayBreakdownEnabled && activeMode === 'single' ? maleCountsArr[idx] / maleCount : maleRatiosArr[idx];
+                const fRatio = barangayBreakdownEnabled && activeMode === 'single' ? femaleCountsArr[idx] / femaleCount : femaleRatiosArr[idx];
+                const tRatio = barangayBreakdownEnabled && activeMode === 'single' ? (maleCountsArr[idx] + femaleCountsArr[idx]) / pop : totalRatiosArr[idx];
 
                 const mCount = maleCountsArr[idx];
                 const fCount = femaleCountsArr[idx];
@@ -1531,6 +1739,51 @@ html_content = """<!DOCTYPE html>
             
             // 3. Disability/Difficulty calculations
             updateDisabilitySection(pop, maleCount, femaleCount);
+
+            // Render Barangay Report Table
+            const brgyCard = document.getElementById('barangayReportCard');
+            if (barangayBreakdownEnabled && activeMode === 'single') {
+                brgyCard.style.display = 'flex';
+                const brgyTableBody = document.getElementById('barangayReportTableBody');
+                brgyTableBody.innerHTML = '';
+                
+                let totalBrgyPop = 0;
+                let totalBrgyMale = 0;
+                let totalBrgyFemale = 0;
+                let totalBrgyDifficulty = 0;
+                
+                barangaysProjections.forEach(b => {
+                    totalBrgyPop += b.pop;
+                    totalBrgyMale += b.male;
+                    totalBrgyFemale += b.female;
+                    totalBrgyDifficulty += b.difficulty;
+                    
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="font-weight: 600;">${b.name}</td>
+                        <td style="font-weight: 500;">${b.pop.toLocaleString()}</td>
+                        <td style="color: #2563eb; font-weight: 600;">${b.male.toLocaleString()}</td>
+                        <td style="color: #c084fc; font-weight: 600;">${b.female.toLocaleString()}</td>
+                        <td style="color: #10b981; font-weight: 600;">${b.difficulty.toLocaleString()}</td>
+                    `;
+                    brgyTableBody.appendChild(tr);
+                });
+                
+                // Add Total row
+                const totalTr = document.createElement('tr');
+                totalTr.style.borderTop = '2px solid var(--accent)';
+                totalTr.style.backgroundColor = 'rgba(255, 255, 255, 0.04)';
+                totalTr.innerHTML = `
+                    <td style="font-weight: 700;">TOTAL</td>
+                    <td style="font-weight: 700;">${totalBrgyPop.toLocaleString()}</td>
+                    <td style="color: #2563eb; font-weight: 700;">${totalBrgyMale.toLocaleString()}</td>
+                    <td style="color: #c084fc; font-weight: 700;">${totalBrgyFemale.toLocaleString()}</td>
+                    <td style="color: #10b981; font-weight: 700;">${totalBrgyDifficulty.toLocaleString()}</td>
+                `;
+                brgyTableBody.appendChild(totalTr);
+            } else {
+                brgyCard.style.display = 'none';
+            }
         }
 
         // Render Sex Pie Chart
@@ -1656,7 +1909,6 @@ html_content = """<!DOCTYPE html>
             }
         }
 
-        // Update Functional Difficulty Section (based on active severity tab)
         function updateDisabilitySection(pop, maleCount, femaleCount) {
             if (!selectedMunicipality) return;
             
@@ -1672,24 +1924,40 @@ html_content = """<!DOCTYPE html>
             
             const colors = ['#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#38bdf8'];
             
-            // Estimate total population with functional difficulty as the maximum domain difficulty count in All, 
-            // since domains can overlap on individuals.
             let maxDifficulty = 0;
-            domains.forEach(d => {
-                const allRatio = selectedMunicipality[`Disability_${d}_All_Ratio`] || 0;
-                const count = Math.round(pop * allRatio);
-                if (count > maxDifficulty) maxDifficulty = count;
-            });
+            if (barangayBreakdownEnabled && activeMode === 'single') {
+                maxDifficulty = lastCalculation.maxDifficulty;
+            } else {
+                domains.forEach(d => {
+                    const allRatio = selectedMunicipality[`Disability_${d}_All_Ratio`] || 0;
+                    const count = Math.round(pop * allRatio);
+                    if (count > maxDifficulty) maxDifficulty = count;
+                });
+            }
             document.getElementById('kpiDisability').textContent = maxDifficulty.toLocaleString();
 
             domains.forEach((d, idx) => {
-                const mRatio = selectedMunicipality[`Male_Disability_${d}_${currentSeverity}_Ratio`] || 0;
-                const fRatio = selectedMunicipality[`Female_Disability_${d}_${currentSeverity}_Ratio`] || 0;
-                const tRatio = selectedMunicipality[`Disability_${d}_${currentSeverity}_Ratio`] || 0;
+                let mCount, fCount, tCount;
+                let mRatio, fRatio, tRatio;
                 
-                const mCount = Math.round(maleCount * mRatio);
-                const fCount = Math.round(femaleCount * fRatio);
-                const tCount = Math.round(pop * tRatio);
+                if (barangayBreakdownEnabled && activeMode === 'single') {
+                    const counts = lastCalculation.disabilityCounts[d][currentSeverity];
+                    mCount = counts.male;
+                    fCount = counts.female;
+                    tCount = counts.total;
+                    
+                    mRatio = maleCount > 0 ? mCount / maleCount : 0;
+                    fRatio = femaleCount > 0 ? fCount / femaleCount : 0;
+                    tRatio = pop > 0 ? tCount / pop : 0;
+                } else {
+                    mRatio = selectedMunicipality[`Male_Disability_${d}_${currentSeverity}_Ratio`] || 0;
+                    fRatio = selectedMunicipality[`Female_Disability_${d}_${currentSeverity}_Ratio`] || 0;
+                    tRatio = selectedMunicipality[`Disability_${d}_${currentSeverity}_Ratio`] || 0;
+                    
+                    mCount = Math.round(maleCount * mRatio);
+                    fCount = Math.round(femaleCount * fRatio);
+                    tCount = Math.round(pop * tRatio);
+                }
                 
                 maleCounts.push(mCount);
                 femaleCounts.push(fCount);
@@ -1789,7 +2057,7 @@ html_content = """<!DOCTYPE html>
         function resetForm() {
             document.getElementById('provinceSelect').value = '';
             onProvinceChange();
-            document.getElementById('populationInput').value = '10000';
+            resetBarangayBreakdown();
         }
 
         // Export data to CSV
@@ -1845,6 +2113,27 @@ html_content = """<!DOCTYPE html>
                     csv += `Disability (${d} - Severity: ${s}),Male / Female / Total,${mRatio},${mCount},${fRatio},${fCount},${tRatio},${tCount}\\n`;
                 });
             });
+
+            // Barangay Breakdown Report
+            if (lastCalculation.barangayBreakdown && lastCalculation.barangays) {
+                csv += "\\n";
+                csv += "Barangay Breakdown Report\\n";
+                csv += "Barangay Name,Affected Population,Male Est.,Female Est.,Est. Pop. with Functional Difficulty\\n";
+                
+                let totalBrgyPop = 0;
+                let totalBrgyMale = 0;
+                let totalBrgyFemale = 0;
+                let totalBrgyDifficulty = 0;
+                
+                lastCalculation.barangays.forEach(b => {
+                    csv += `"${b.name.replace(/"/g, '""')}",${b.pop},${b.male},${b.female},${b.difficulty}\\n`;
+                    totalBrgyPop += b.pop;
+                    totalBrgyMale += b.male;
+                    totalBrgyFemale += b.female;
+                    totalBrgyDifficulty += b.difficulty;
+                });
+                csv += `TOTAL,${totalBrgyPop},${totalBrgyMale},${totalBrgyFemale},${totalBrgyDifficulty}\\n`;
+            }
             
             // Download file
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
