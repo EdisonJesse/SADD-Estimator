@@ -634,6 +634,14 @@ html_content = """<!DOCTYPE html>
                 <input type="number" id="populationInput" min="1" placeholder="Enter total count" value="10000" oninput="calculateEstimates()">
             </div>
 
+            <div class="form-group">
+                <label for="ageDisaggregationSelect">Age Disaggregation</label>
+                <select id="ageDisaggregationSelect" onchange="onAgeDisaggregationChange(this.value)">
+                    <option value="standard">Standard (5-Year Brackets)</option>
+                    <option value="alternative">Alternative (0 to 4, 5 to 17, 18 to 59, 60+)</option>
+                </select>
+            </div>
+
             <button class="btn" onclick="calculateEstimates()">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                 Calculate Estimates
@@ -666,6 +674,14 @@ html_content = """<!DOCTYPE html>
             <div class="form-group">
                 <label for="populationInputMulti">Total Affected Population</label>
                 <input type="number" id="populationInputMulti" min="1" placeholder="Enter total count" value="10000" oninput="calculateEstimates()">
+            </div>
+
+            <div class="form-group">
+                <label for="ageDisaggregationSelectMulti">Age Disaggregation</label>
+                <select id="ageDisaggregationSelectMulti" onchange="onAgeDisaggregationChange(this.value)">
+                    <option value="standard">Standard (5-Year Brackets)</option>
+                    <option value="alternative">Alternative (0 to 4, 5 to 17, 18 to 59, 60+)</option>
+                </select>
             </div>
 
             <button class="btn" onclick="calculateEstimates()">
@@ -909,16 +925,31 @@ html_content = """<!DOCTYPE html>
         let activeMode = 'single'; // 'single' or 'multi'
         let singleSelectedMun = null;
         let multiSyntheticMun = null;
+        let ageDisaggregationMode = 'standard'; // 'standard' or 'alternative'
+
+        function onAgeDisaggregationChange(val) {
+            ageDisaggregationMode = val;
+            document.getElementById('ageDisaggregationSelect').value = val;
+            document.getElementById('ageDisaggregationSelectMulti').value = val;
+            calculateEstimates();
+        }
 
         // Track last calculation to align UI display with CSV exports exactly
         let lastCalculation = {
             pop: 0,
             maleCount: 0,
             femaleCount: 0,
+            ageKeys: [],
+            ageLabels: [],
+            ageRatios: {
+                male: [],
+                female: [],
+                total: []
+            },
             ageCounts: {
-                male: {},
-                female: {},
-                total: {}
+                male: [],
+                female: [],
+                total: []
             }
         };
 
@@ -1346,71 +1377,142 @@ html_content = """<!DOCTYPE html>
             renderSexChart(maleCount, femaleCount);
             
             // 2. Age disaggregation calculations (separating Male and Female)
-            const ageKeys = Object.keys(selectedMunicipality)
-                .filter(k => k.startsWith('Age_') && k.endsWith('_Ratio'))
-                .sort((a, b) => {
-                    const clean_a = a.replace('Age_Age_', '').replace('_Ratio', '').replace('Age_', '');
-                    const clean_b = b.replace('Age_Age_', '').replace('_Ratio', '').replace('Age_', '');
-                    if (clean_a.startsWith('80')) return 1;
-                    if (clean_b.startsWith('80')) return -1;
-                    const val_a = parseInt(clean_a.split('to')[0].split('-')[0]);
-                    const val_b = parseInt(clean_b.split('to')[0].split('-')[0]);
-                    return val_a - val_b;
+            let ageLabels = [];
+            let maleRatiosArr = [];
+            let femaleRatiosArr = [];
+            let totalRatiosArr = [];
+            let ageKeys = [];
+
+            if (ageDisaggregationMode === 'alternative') {
+                const getRatios = (sex) => {
+                    const prefix = sex === 'Total' ? 'Age_' : `${sex}_Age_`;
+                    return {
+                        r_0_4: selectedMunicipality[`${prefix}0-4_Ratio`] || 0,
+                        r_5_9: selectedMunicipality[`${prefix}5-9_Ratio`] || 0,
+                        r_10_14: selectedMunicipality[`${prefix}10-14_Ratio`] || 0,
+                        r_15_19: selectedMunicipality[`${prefix}15-19_Ratio`] || 0,
+                        r_20_24: selectedMunicipality[`${prefix}20-24_Ratio`] || 0,
+                        r_25_29: selectedMunicipality[`${prefix}25-29_Ratio`] || 0,
+                        r_30_34: selectedMunicipality[`${prefix}30-34_Ratio`] || 0,
+                        r_35_39: selectedMunicipality[`${prefix}35-39_Ratio`] || 0,
+                        r_40_44: selectedMunicipality[`${prefix}40-44_Ratio`] || 0,
+                        r_45_49: selectedMunicipality[`${prefix}45-49_Ratio`] || 0,
+                        r_50_54: selectedMunicipality[`${prefix}50-54_Ratio`] || 0,
+                        r_55_59: selectedMunicipality[`${prefix}55-59_Ratio`] || 0,
+                        r_60_64: selectedMunicipality[`${prefix}60-64_Ratio`] || 0,
+                        r_65_69: selectedMunicipality[`${prefix}65-69_Ratio`] || 0,
+                        r_70_74: selectedMunicipality[`${prefix}70-74_Ratio`] || 0,
+                        r_75_79: selectedMunicipality[`${prefix}75-79_Ratio`] || 0,
+                        r_80plus: selectedMunicipality[`${prefix}80yearsandover_Ratio`] || 0
+                    };
+                };
+
+                const m = getRatios('Male');
+                const f = getRatios('Female');
+                const t = getRatios('Total');
+
+                maleRatiosArr = [
+                    m.r_0_4,
+                    m.r_5_9 + m.r_10_14 + 0.6 * m.r_15_19,
+                    0.4 * m.r_15_19 + m.r_20_24 + m.r_25_29 + m.r_30_34 + m.r_35_39 + m.r_40_44 + m.r_45_49 + m.r_50_54 + m.r_55_59,
+                    m.r_60_64 + m.r_65_69 + m.r_70_74 + m.r_75_79 + m.r_80plus
+                ];
+
+                femaleRatiosArr = [
+                    f.r_0_4,
+                    f.r_5_9 + f.r_10_14 + 0.6 * f.r_15_19,
+                    0.4 * f.r_15_19 + f.r_20_24 + f.r_25_29 + f.r_30_34 + f.r_35_39 + f.r_40_44 + f.r_45_49 + f.r_50_54 + f.r_55_59,
+                    f.r_60_64 + f.r_65_69 + f.r_70_74 + f.r_75_79 + f.r_80plus
+                ];
+
+                totalRatiosArr = [
+                    t.r_0_4,
+                    t.r_5_9 + t.r_10_14 + 0.6 * t.r_15_19,
+                    0.4 * t.r_15_19 + t.r_20_24 + t.r_25_29 + t.r_30_34 + t.r_35_39 + t.r_40_44 + t.r_45_49 + t.r_50_54 + t.r_55_59,
+                    t.r_60_64 + t.r_65_69 + t.r_70_74 + t.r_75_79 + t.r_80plus
+                ];
+
+                ageLabels = ['0 to 4', '5 to 17', '18 to 59', '60+'];
+                ageKeys = ['0_to_4', '5_to_17', '18_to_59', '60_plus'];
+            } else {
+                ageKeys = Object.keys(selectedMunicipality)
+                    .filter(k => k.startsWith('Age_') && k.endsWith('_Ratio'))
+                    .sort((a, b) => {
+                        const clean_a = a.replace('Age_Age_', '').replace('_Ratio', '').replace('Age_', '');
+                        const clean_b = b.replace('Age_Age_', '').replace('_Ratio', '').replace('Age_', '');
+                        if (clean_a.startsWith('80')) return 1;
+                        if (clean_b.startsWith('80')) return -1;
+                        const val_a = parseInt(clean_a.split('to')[0].split('-')[0]);
+                        const val_b = parseInt(clean_b.split('to')[0].split('-')[0]);
+                        return val_a - val_b;
+                    });
+
+                maleRatiosArr = ageKeys.map(k => {
+                    const clean_age = k.replace('Age_', '').replace('_Ratio', '');
+                    return selectedMunicipality[`Male_Age_${clean_age}_Ratio`] || 0.0;
                 });
-                
+                femaleRatiosArr = ageKeys.map(k => {
+                    const clean_age = k.replace('Age_', '').replace('_Ratio', '');
+                    return selectedMunicipality[`Female_Age_${clean_age}_Ratio`] || 0.0;
+                });
+                totalRatiosArr = ageKeys.map(k => {
+                    return selectedMunicipality[k] || 0.0;
+                });
+
+                ageKeys.forEach(k => {
+                    let label = k.replace('Age_Age_', '').replace('_Ratio', '').replace('Age_', '');
+                    label = label.replace('yearsoldandover', ' years and over').replace('yearsandover', ' years and over');
+                    label = label.replace('-', ' to '); // Avoid dates in Excel
+                    label = label.charAt(0).toUpperCase() + label.slice(1);
+                    ageLabels.push(label);
+                });
+            }
+
             const ageTableBody = document.getElementById('ageTableBody');
             ageTableBody.innerHTML = '';
-            
-            const ageLabels = [];
+
             const maleAgeCounts = [];
             const femaleAgeCounts = [];
-            
-            const maleRatiosArr = ageKeys.map(k => {
-                const clean_age = k.replace('Age_', '').replace('_Ratio', '');
-                return selectedMunicipality[`Male_Age_${clean_age}_Ratio`] || 0.0;
-            });
-            const femaleRatiosArr = ageKeys.map(k => {
-                const clean_age = k.replace('Age_', '').replace('_Ratio', '');
-                return selectedMunicipality[`Female_Age_${clean_age}_Ratio`] || 0.0;
-            });
-            
+
             // Distribute male and female population counts separately
             const maleCountsArr = distributePopulation(maleCount, maleRatiosArr);
             const femaleCountsArr = distributePopulation(femaleCount, femaleRatiosArr);
-            
+
             // Calculate 5+ population counts (excluding 0-4 group)
             const male_5_plus = maleCount - maleCountsArr[0];
             const female_5_plus = femaleCount - femaleCountsArr[0];
             const total_5_plus = pop - (maleCountsArr[0] + femaleCountsArr[0]);
-            
+
             lastCalculation.male_5_plus = male_5_plus;
             lastCalculation.female_5_plus = female_5_plus;
             lastCalculation.total_5_plus = total_5_plus;
-            
-            ageKeys.forEach((k, idx) => {
-                let label = k.replace('Age_Age_', '').replace('_Ratio', '').replace('Age_', '');
-                label = label.replace('to', '-').replace('yearsoldandover', ' years and over').replace('yearsandover', ' years and over');
-                label = label.charAt(0).toUpperCase() + label.slice(1);
-                label = label.replace(/(\d+)-(\d+)/, '$1 - $2');
-                
-                const clean_age = k.replace('Age_', '').replace('_Ratio', '');
-                const mRatio = selectedMunicipality[`Male_Age_${clean_age}_Ratio`] || 0.0;
-                const fRatio = selectedMunicipality[`Female_Age_${clean_age}_Ratio`] || 0.0;
-                const tRatio = selectedMunicipality[k] || 0.0;
-                
+
+            // Save for export dynamically
+            lastCalculation.ageKeys = ageKeys;
+            lastCalculation.ageLabels = ageLabels;
+            lastCalculation.ageRatios = {
+                male: maleRatiosArr,
+                female: femaleRatiosArr,
+                total: totalRatiosArr
+            };
+            lastCalculation.ageCounts = {
+                male: maleCountsArr,
+                female: femaleCountsArr,
+                total: maleCountsArr.map((m, i) => m + femaleCountsArr[i])
+            };
+
+            ageLabels.forEach((label, idx) => {
+                const mRatio = maleRatiosArr[idx];
+                const fRatio = femaleRatiosArr[idx];
+                const tRatio = totalRatiosArr[idx];
+
                 const mCount = maleCountsArr[idx];
                 const fCount = femaleCountsArr[idx];
-                const tCount = mCount + fCount; // Exact sum of male and female counts
-                
-                // Track count for export consistency
-                lastCalculation.ageCounts.male[k] = mCount;
-                lastCalculation.ageCounts.female[k] = fCount;
-                lastCalculation.ageCounts.total[k] = tCount;
-                
-                ageLabels.push(label);
+                const tCount = mCount + fCount;
+
                 maleAgeCounts.push(mCount);
                 femaleAgeCounts.push(fCount);
-                
+
                 // Add row to table
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
@@ -1709,31 +1811,16 @@ html_content = """<!DOCTYPE html>
             
             // Age groups
             csv += "Age Groups\\n";
-            Object.keys(selectedMunicipality)
-                .filter(k => k.startsWith('Age_') && k.endsWith('_Ratio'))
-                .sort((a, b) => {
-                    const clean_a = a.replace('Age_Age_', '').replace('_Ratio', '').replace('Age_', '');
-                    const clean_b = b.replace('Age_Age_', '').replace('_Ratio', '').replace('Age_', '');
-                    if (clean_a.startsWith('80')) return 1;
-                    if (clean_b.startsWith('80')) return -1;
-                    const val_a = parseInt(clean_a.split('to')[0].split('-')[0]);
-                    const val_b = parseInt(clean_b.split('to')[0].split('-')[0]);
-                    return val_a - val_b;
-                })
-                .forEach(k => {
-                    const clean_age = k.replace('Age_', '').replace('_Ratio', '');
-                    const label = clean_age.replace('to', ' - ').replace('yearsoldandover', ' years and over').replace('yearsandover', ' years and over');
-                    
-                    const mRatio = selectedMunicipality[`Male_Age_${clean_age}_Ratio`] || 0.0;
-                    const fRatio = selectedMunicipality[`Female_Age_${clean_age}_Ratio`] || 0.0;
-                    const tRatio = selectedMunicipality[k] || 0.0;
-                    
-                    const mCount = lastCalculation.ageCounts.male[k];
-                    const fCount = lastCalculation.ageCounts.female[k];
-                    const tCount = lastCalculation.ageCounts.total[k];
-                    
-                    csv += `Age Group,${label},${mRatio},${mCount},${fRatio},${fCount},${tRatio},${tCount}\\n`;
-                });
+            lastCalculation.ageLabels.forEach((label, idx) => {
+                const mRatio = lastCalculation.ageRatios.male[idx];
+                const mCount = lastCalculation.ageCounts.male[idx];
+                const fRatio = lastCalculation.ageRatios.female[idx];
+                const fCount = lastCalculation.ageCounts.female[idx];
+                const tRatio = lastCalculation.ageRatios.total[idx];
+                const tCount = lastCalculation.ageCounts.total[idx];
+                
+                csv += `Age Group,${label},${mRatio},${mCount},${fRatio},${fCount},${tRatio},${tCount}\\n`;
+            });
             csv += "\\n";
             
             // Disability
