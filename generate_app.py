@@ -431,6 +431,145 @@ html_content = """<!DOCTYPE html>
             color: var(--accent);
             text-decoration: none;
         }
+
+        /* Container Layout Toggles */
+        .container.full-width-layout {
+            grid-template-columns: 1fr;
+        }
+
+        /* Main Tabs Navigation */
+        .main-tabs {
+            display: flex;
+            background: var(--bg-glass);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-glass);
+            padding: 0.5rem 2rem;
+            position: sticky;
+            top: 70px;
+            z-index: 99;
+            gap: 1rem;
+            overflow-x: auto;
+        }
+
+        .main-tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            padding: 0.75rem 1.25rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .main-tab-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .main-tab-btn.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        /* Scrollable Checkbox Container */
+        .checkbox-container {
+            border: 1px solid var(--border-glass);
+            border-radius: 0.5rem;
+            background: var(--bg-secondary);
+            padding: 0.75rem;
+            max-height: 200px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            cursor: pointer;
+            color: var(--text-primary);
+        }
+
+        .checkbox-item input {
+            width: auto;
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .checkbox-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.25rem;
+        }
+
+        .btn-small {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            border-radius: 0.25rem;
+        }
+
+        /* Info Content Views */
+        .info-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            max-width: 950px;
+            margin: 0 auto;
+            padding: 1.5rem 0;
+            width: 100%;
+        }
+
+        .info-section {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 1rem;
+            padding: 1.5rem 2rem;
+            box-shadow: var(--card-shadow);
+        }
+
+        .info-section h3 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.25rem;
+            color: var(--accent);
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+        }
+
+        .info-section p {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+        }
+
+        .info-section p:last-child {
+            margin-bottom: 0;
+        }
+
+        .info-section ul {
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .info-section li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .info-section code {
+            background: rgba(255, 255, 255, 0.07);
+            padding: 0.1rem 0.4rem;
+            border-radius: 0.25rem;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
     </style>
 </head>
 <body>
@@ -458,9 +597,16 @@ html_content = """<!DOCTYPE html>
         </button>
     </header>
 
-    <div class="container">
-        <!-- Control Card -->
-        <div class="card">
+    <div class="main-tabs">
+        <button class="main-tab-btn active" id="tabBtnSingle" onclick="showMainTab('single')">Single Municipality</button>
+        <button class="main-tab-btn" id="tabBtnMulti" onclick="showMainTab('multi')">Multiple Selection</button>
+        <button class="main-tab-btn" id="tabBtnMethod" onclick="showMainTab('methodology')">Computation Method</button>
+        <button class="main-tab-btn" id="tabBtnPrivacy" onclick="showMainTab('privacy')">Privacy & Disclaimer</button>
+    </div>
+
+    <div class="container" id="mainContainer">
+        <!-- Control Card (Single Mode) -->
+        <div class="card" id="cardSingleSidebar">
             <h2>Select Parameters</h2>
             
             <div class="form-group">
@@ -489,8 +635,42 @@ html_content = """<!DOCTYPE html>
             <button class="btn btn-secondary" onclick="resetForm()">Reset</button>
         </div>
 
+        <!-- Control Card (Multi Mode) -->
+        <div class="card" id="cardMultiSidebar" style="display: none;">
+            <h2>Select Parameters</h2>
+            
+            <div class="form-group">
+                <label for="provinceSelectMulti">Province</label>
+                <select id="provinceSelectMulti" onchange="onProvinceMultiChange()">
+                    <option value="">-- Select Province --</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Municipalities</label>
+                <div class="checkbox-actions">
+                    <button class="btn btn-secondary btn-small" onclick="selectAllMuns(true)">Select All</button>
+                    <button class="btn btn-secondary btn-small" onclick="selectAllMuns(false)">Clear All</button>
+                </div>
+                <div class="checkbox-container" id="checkboxContainerMulti" style="margin-top: 0.5rem;">
+                    <span style="font-size: 0.85rem; color: var(--text-secondary);">Select a province first...</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="populationInputMulti">Total Affected Population</label>
+                <input type="number" id="populationInputMulti" min="1" placeholder="Enter total count" value="10000" oninput="calculateEstimates()">
+            </div>
+
+            <button class="btn" onclick="calculateEstimates()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                Calculate Estimates
+            </button>
+            <button class="btn btn-secondary" onclick="resetFormMulti()">Reset</button>
+        </div>
+
         <!-- Output Results Area -->
-        <div class="results-container">
+        <div class="results-container" id="resultsContainer">
             <!-- Placeholder before selection -->
             <div id="placeholder" class="placeholder-card">
                 <div class="placeholder-icon">📊</div>
@@ -612,6 +792,72 @@ html_content = """<!DOCTYPE html>
                     Export Full Disaggregation Report (CSV)
                 </button>
             </div>
+
+            <!-- Computation Method Tab (hidden initially) -->
+            <div id="methodologyTab" style="display: none;" class="info-content">
+                <div class="info-section">
+                    <h3>Computation Methodology</h3>
+                    <p>The ACCORD Sex, Age, and Disability Disaggregation (SADD) Estimator uses a mathematically rigorous, offline-compatible model to project census ratios onto user-entered affected populations.</p>
+                </div>
+                
+                <div class="info-section">
+                    <h3>Sex and Age Disaggregation</h3>
+                    <p>Ratios are extracted from the PSA 2020 Census of Population and Housing. Gender and age cohorts are computed independently to maintain demographic integrity:</p>
+                    <ul>
+                        <li><strong>Sex Breakdown</strong>: Projected counts are derived using the municipal ratios:
+                            <br><code>Male Count = round(Population * Male_Ratio)</code>
+                            <br><code>Female Count = Population - Male Count</code>
+                        </li>
+                        <li><strong>Age Cohort Distribution</strong>: Distributed independently for Male and Female cohorts using the <strong>Largest Remainder Method (Hamilton Method)</strong>. This avoids mathematical rounding errors and guarantees that the sum of the age cohorts matches the total male and female counts exactly.</li>
+                    </ul>
+                </div>
+
+                <div class="info-section">
+                    <h3>Functional Difficulty Estimation (WGQ)</h3>
+                    <p>Prevalence calculations for functional difficulties follow the official <strong>Washington Group Questions (WGQ)</strong> taxonomy across 6 domains (Seeing, Hearing, Walking, Remembering, Self-Caring, and Communicating) and 4 severity levels (Mild, Moderate, Severe, and All/Any):</p>
+                    <ul>
+                        <li><strong>Aged 5 and Over Denominator</strong>: Since functional difficulty census surveys are only conducted for individuals aged 5 and over, the ratios in the database use the population aged 5+ (excluding the 0-4 cohort) as the denominator, as per international reporting standards.</li>
+                        <li><strong>Overall Prevalence Estimation</strong>: In the census data, individual-level microdata is aggregated into domain counts. Because individuals can experience difficulties in more than one domain simultaneously (e.g. both vision and walking limitations), summing the domains together would cause significant double-counting. 
+                        <br>To estimate the number of unique individuals experiencing functional difficulty, the dashboard applies the <strong>Maximum Domain Count</strong> rule under the <em>All</em> severity level:
+                        <br><code>Est. Population with Functional Difficulty = max(Domain_Count_All)</code>
+                        This represents the most accurate, conservative threshold estimate of individuals experiencing at least one functional difficulty.</li>
+                    </ul>
+                </div>
+
+                <div class="info-section">
+                    <h3>Aggregation for Multiple Municipalities</h3>
+                    <p>When multiple municipalities are selected, the user-entered population is distributed proportionally among them based on their respective official 2020 census populations:</p>
+                    <ul>
+                        <li><strong>Proportional Allocation</strong>: 
+                            <br><code>Allocated Pop (Mun i) = Total Entered Pop * (Census Pop (Mun i) / Sum of Census Pops)</code>
+                        </li>
+                        <li><strong>Weighted Ratios</strong>: The synthetic municipality's ratios are computed as the weighted averages of the selected municipalities' ratios, weighted by their total, male, female, or 5+ populations respectively. This ensures that the aggregated estimates are mathematically equivalent to computing individual counts and summing them.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Privacy & Disclaimer Tab (hidden initially) -->
+            <div id="privacyTab" style="display: none;" class="info-content">
+                <div class="info-section">
+                    <h3>GDPR Compliance & Data Privacy Notice</h3>
+                    <p>We take data privacy and compliance seriously. This notice explains how the SADD Estimator handles data under the General Data Protection Regulation (GDPR) and the Philippine Data Privacy Act of 2012 (RA 10173):</p>
+                    <ul>
+                        <li><strong>100% Client-Side Processing</strong>: The application runs entirely within your local browser. All calculations, data inputs, and exports are performed in-memory on your device.</li>
+                        <li><strong>Zero External Data Transmission</strong>: No data entered into this application (such as affected population counts or location selections) is sent to external servers, database hosts, or third-party APIs. The application works completely offline.</li>
+                        <li><strong>No Cookies or Tracking</strong>: We do not use cookies, tracking pixels, local storage trackers, or analytics scripts (like Google Analytics). Your usage is completely private and untracked.</li>
+                        <li><strong>No Personal Data (PII) Collected</strong>: Since the app does not collect, store, or transmit names, contact details, or specific identifiers, it is fully compliant with GDPR data minimization principles.</li>
+                    </ul>
+                </div>
+
+                <div class="info-section">
+                    <h3>Data Disclaimer & Limitations</h3>
+                    <ul>
+                        <li><strong>Estimation Proxy</strong>: The dashboard provides estimated numbers based on historical census distributions (PSA Census 2020). Actual numbers in active disaster areas may vary due to local migration, post-2020 demographic shifts, and specific hazard exposure.</li>
+                        <li><strong>Self-Reported Limitations</strong>: The Washington Group Questions measure self-reported difficulties in basic activity domains. They reflect functional limitations rather than clinical medical diagnoses.</li>
+                        <li><strong>Operational Decisions</strong>: These figures are intended as a tool for initial rapid needs assessments and response planning. They do not replace formal beneficiary registration or direct field verification.</li>
+                    </ul>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -628,6 +874,10 @@ html_content = """<!DOCTYPE html>
         let sexChartObj = null;
         let ageChartObj = null;
         let disabilityChartObj = null;
+
+        let activeMode = 'single'; // 'single' or 'multi'
+        let singleSelectedMun = null;
+        let multiSyntheticMun = null;
 
         // Track last calculation to align UI display with CSV exports exactly
         let lastCalculation = {
@@ -678,17 +928,27 @@ html_content = """<!DOCTYPE html>
             const provinces = [...new Set(MUNICIPALITY_DATA.map(item => item.Province))].sort();
             const provinceSelect = document.getElementById('provinceSelect');
             
+            const provinceSelectMulti = document.getElementById('provinceSelectMulti');
             provinces.forEach(prov => {
-                const opt = document.createElement('option');
-                opt.value = prov;
-                opt.textContent = prov;
-                provinceSelect.appendChild(opt);
+                const opt1 = document.createElement('option');
+                opt1.value = prov;
+                opt1.textContent = prov;
+                provinceSelect.appendChild(opt1);
+                
+                const opt2 = document.createElement('option');
+                opt2.value = prov;
+                opt2.textContent = prov;
+                provinceSelectMulti.appendChild(opt2);
             });
             
             // Set default to Sarangani and Alabel if present
             if (provinces.includes('Sarangani')) {
                 provinceSelect.value = 'Sarangani';
                 onProvinceChange();
+                
+                provinceSelectMulti.value = 'Sarangani';
+                onProvinceMultiChange();
+                
                 const munSelect = document.getElementById('municipalitySelect');
                 if ([...munSelect.options].some(opt => opt.value === 'Alabel')) {
                     munSelect.value = 'Alabel';
@@ -706,6 +966,7 @@ html_content = """<!DOCTYPE html>
             // Clear existing options
             munSelect.innerHTML = '<option value="">-- Select Municipality --</option>';
             selectedMunicipality = null;
+            singleSelectedMun = null;
             
             if (!prov) {
                 munSelect.disabled = true;
@@ -737,26 +998,270 @@ html_content = """<!DOCTYPE html>
             
             if (!prov || !mun) {
                 selectedMunicipality = null;
+                singleSelectedMun = null;
                 document.getElementById('placeholder').style.display = 'flex';
                 document.getElementById('dashboard').style.display = 'none';
                 return;
             }
             
             selectedMunicipality = MUNICIPALITY_DATA.find(item => item.Province === prov && item.Municipality === mun);
+            singleSelectedMun = selectedMunicipality;
+        }
+
+        // Handle Province change in Multi mode
+        function onProvinceMultiChange() {
+            const prov = document.getElementById('provinceSelectMulti').value;
+            const container = document.getElementById('checkboxContainerMulti');
+            
+            selectedMunicipality = null;
+            multiSyntheticMun = null;
+            
+            if (!prov) {
+                container.innerHTML = '<span style="font-size: 0.85rem; color: var(--text-secondary);">Select a province first...</span>';
+                document.getElementById('placeholder').style.display = 'flex';
+                document.getElementById('dashboard').style.display = 'none';
+                return;
+            }
+            
+            // Get municipalities
+            const muns = MUNICIPALITY_DATA
+                .filter(item => item.Province === prov)
+                .map(item => item.Municipality)
+                .sort();
+                
+            container.innerHTML = '';
+            muns.forEach(mun => {
+                const label = document.createElement('label');
+                label.className = 'checkbox-item';
+                
+                const input = document.createElement('input');
+                input.type = 'checkbox';
+                input.value = mun;
+                input.onchange = calculateEstimates;
+                
+                label.appendChild(input);
+                label.appendChild(document.createTextNode(mun));
+                container.appendChild(label);
+            });
+            
+            document.getElementById('placeholder').style.display = 'flex';
+            document.getElementById('dashboard').style.display = 'none';
+        }
+
+        function selectAllMuns(isChecked) {
+            const checkboxes = document.querySelectorAll('#checkboxContainerMulti input[type="checkbox"]');
+            checkboxes.forEach(cb => {
+                cb.checked = isChecked;
+            });
+            calculateEstimates();
+        }
+
+        function resetFormMulti() {
+            document.getElementById('provinceSelectMulti').value = '';
+            onProvinceMultiChange();
+            document.getElementById('populationInputMulti').value = '10000';
+        }
+
+        // Build a synthetic weighted average municipality for multi-selection aggregation
+        function buildSyntheticMunicipality(province, checkedCheckboxes) {
+            const selectedMunNames = Array.from(checkedCheckboxes).map(cb => cb.value);
+            const selectedItems = MUNICIPALITY_DATA.filter(item => item.Province === province && selectedMunNames.includes(item.Municipality));
+            
+            if (selectedItems.length === 0) return null;
+            
+            const totalCensusPop = selectedItems.reduce((sum, item) => sum + item.Total_Population, 0);
+            const totalMalePop = selectedItems.reduce((sum, item) => sum + item.Male_Population, 0);
+            const totalFemalePop = selectedItems.reduce((sum, item) => sum + item.Female_Population, 0);
+            
+            const itemDenoms = selectedItems.map(item => {
+                const age_0_4_ratio = item['Age_0-4_Ratio'] || 0;
+                const male_age_0_4_ratio = item['Male_Age_0-4_Ratio'] || 0;
+                const female_age_0_4_ratio = item['Female_Age_0-4_Ratio'] || 0;
+                
+                return {
+                    both: item.Total_Population * (1 - age_0_4_ratio),
+                    male: item.Male_Population * (1 - male_age_0_4_ratio),
+                    female: item.Female_Population * (1 - female_age_0_4_ratio)
+                };
+            });
+            
+            const totalDenomBoth = itemDenoms.reduce((sum, d) => sum + d.both, 0);
+            const totalDenomMale = itemDenoms.reduce((sum, d) => sum + d.male, 0);
+            const totalDenomFemale = itemDenoms.reduce((sum, d) => sum + d.female, 0);
+            
+            let munLabel = "";
+            if (selectedMunNames.length <= 3) {
+                munLabel = selectedMunNames.join(', ');
+            } else {
+                munLabel = `${selectedMunNames.length} Municipalities (${selectedMunNames.slice(0, 2).join(', ')} + ${selectedMunNames.length - 2} more)`;
+            }
+            
+            const synthetic = {
+                Province: province,
+                Municipality: munLabel,
+                Total_Population: totalCensusPop,
+                Male_Population: totalMalePop,
+                Female_Population: totalFemalePop,
+                Male_Ratio: totalMalePop / totalCensusPop,
+                Female_Ratio: totalFemalePop / totalCensusPop
+            };
+            
+            const sampleItem = selectedItems[0];
+            const ratioKeys = Object.keys(sampleItem);
+            
+            ratioKeys.forEach(k => {
+                if (k === 'Male_Ratio' || k === 'Female_Ratio' || k === 'Total_Population' || k === 'Male_Population' || k === 'Female_Population') return;
+                
+                if (k.startsWith('Age_') && k.endsWith('_Ratio')) {
+                    let weightedSum = 0;
+                    selectedItems.forEach(item => {
+                        weightedSum += (item[k] || 0) * item.Total_Population;
+                    });
+                    synthetic[k] = weightedSum / totalCensusPop;
+                } 
+                else if (k.startsWith('Male_Age_') && k.endsWith('_Ratio')) {
+                    let weightedSum = 0;
+                    selectedItems.forEach(item => {
+                        weightedSum += (item[k] || 0) * item.Male_Population;
+                    });
+                    synthetic[k] = totalMalePop > 0 ? weightedSum / totalMalePop : 0;
+                }
+                else if (k.startsWith('Female_Age_') && k.endsWith('_Ratio')) {
+                    let weightedSum = 0;
+                    selectedItems.forEach(item => {
+                        weightedSum += (item[k] || 0) * item.Female_Population;
+                    });
+                    synthetic[k] = totalFemalePop > 0 ? weightedSum / totalFemalePop : 0;
+                }
+                else if (k.startsWith('Disability_') && k.endsWith('_Ratio')) {
+                    let weightedSum = 0;
+                    selectedItems.forEach((item, idx) => {
+                        weightedSum += (item[k] || 0) * itemDenoms[idx].both;
+                    });
+                    synthetic[k] = totalDenomBoth > 0 ? weightedSum / totalDenomBoth : 0;
+                }
+                else if (k.startsWith('Male_Disability_') && k.endsWith('_Ratio')) {
+                    let weightedSum = 0;
+                    selectedItems.forEach((item, idx) => {
+                        weightedSum += (item[k] || 0) * itemDenoms[idx].male;
+                    });
+                    synthetic[k] = totalDenomMale > 0 ? weightedSum / totalDenomMale : 0;
+                }
+                else if (k.startsWith('Female_Disability_') && k.endsWith('_Ratio')) {
+                    let weightedSum = 0;
+                    selectedItems.forEach((item, idx) => {
+                        weightedSum += (item[k] || 0) * itemDenoms[idx].female;
+                    });
+                    synthetic[k] = totalDenomFemale > 0 ? weightedSum / totalDenomFemale : 0;
+                }
+            });
+            
+            return synthetic;
+        }
+
+        // Toggle Main Tabs
+        function showMainTab(tabId) {
+            document.querySelectorAll('.main-tab-btn').forEach(btn => btn.classList.remove('active'));
+            
+            if (tabId === 'single') document.getElementById('tabBtnSingle').classList.add('active');
+            if (tabId === 'multi') document.getElementById('tabBtnMulti').classList.add('active');
+            if (tabId === 'methodology') document.getElementById('tabBtnMethod').classList.add('active');
+            if (tabId === 'privacy') document.getElementById('tabBtnPrivacy').classList.add('active');
+            
+            const container = document.getElementById('mainContainer');
+            const sidebarSingle = document.getElementById('cardSingleSidebar');
+            const sidebarMulti = document.getElementById('cardMultiSidebar');
+            const placeholder = document.getElementById('placeholder');
+            const dashboard = document.getElementById('dashboard');
+            const methodologyTab = document.getElementById('methodologyTab');
+            const privacyTab = document.getElementById('privacyTab');
+            
+            sidebarSingle.style.display = 'none';
+            sidebarMulti.style.display = 'none';
+            placeholder.style.display = 'none';
+            dashboard.style.display = 'none';
+            methodologyTab.style.display = 'none';
+            privacyTab.style.display = 'none';
+            container.classList.remove('full-width-layout');
+            
+            if (tabId === 'single') {
+                activeMode = 'single';
+                sidebarSingle.style.display = 'flex';
+                selectedMunicipality = singleSelectedMun;
+                
+                if (selectedMunicipality) {
+                    placeholder.style.display = 'none';
+                    dashboard.style.display = 'flex';
+                    calculateEstimates();
+                } else {
+                    placeholder.style.display = 'flex';
+                    dashboard.style.display = 'none';
+                }
+            } 
+            else if (tabId === 'multi') {
+                activeMode = 'multi';
+                sidebarMulti.style.display = 'flex';
+                selectedMunicipality = multiSyntheticMun;
+                
+                if (selectedMunicipality) {
+                    placeholder.style.display = 'none';
+                    dashboard.style.display = 'flex';
+                    calculateEstimates();
+                } else {
+                    placeholder.style.display = 'flex';
+                    dashboard.style.display = 'none';
+                }
+            } 
+            else if (tabId === 'methodology') {
+                container.classList.add('full-width-layout');
+                methodologyTab.style.display = 'flex';
+            } 
+            else if (tabId === 'privacy') {
+                container.classList.add('full-width-layout');
+                privacyTab.style.display = 'flex';
+            }
         }
 
         // Calculate and Render Dashboard
         function calculateEstimates() {
-            if (!selectedMunicipality) {
-                alert("Please select a valid Province and Municipality.");
-                return;
-            }
-            
-            const countInput = document.getElementById('populationInput');
-            let pop = parseInt(countInput.value);
-            if (isNaN(pop) || pop <= 0) {
-                pop = 10000;
-                countInput.value = 10000;
+            let pop = 10000;
+            if (activeMode === 'single') {
+                if (!selectedMunicipality) {
+                    alert("Please select a valid Province and Municipality.");
+                    return;
+                }
+                const countInput = document.getElementById('populationInput');
+                pop = parseInt(countInput.value);
+                if (isNaN(pop) || pop <= 0) {
+                    pop = 10000;
+                    countInput.value = 10000;
+                }
+                singleSelectedMun = selectedMunicipality;
+            } else {
+                const provSelect = document.getElementById('provinceSelectMulti');
+                const prov = provSelect.value;
+                if (!prov) {
+                    alert("Please select a Province.");
+                    return;
+                }
+                const checkboxes = document.querySelectorAll('#checkboxContainerMulti input[type="checkbox"]:checked');
+                if (checkboxes.length === 0) {
+                    document.getElementById('placeholder').style.display = 'flex';
+                    document.getElementById('dashboard').style.display = 'none';
+                    selectedMunicipality = null;
+                    multiSyntheticMun = null;
+                    return;
+                }
+                
+                const countInput = document.getElementById('populationInputMulti');
+                pop = parseInt(countInput.value);
+                if (isNaN(pop) || pop <= 0) {
+                    pop = 10000;
+                    countInput.value = 10000;
+                }
+                
+                selectedMunicipality = buildSyntheticMunicipality(prov, checkboxes);
+                multiSyntheticMun = selectedMunicipality;
             }
             
             // Show Dashboard, Hide Placeholder
@@ -764,7 +1269,17 @@ html_content = """<!DOCTYPE html>
             document.getElementById('dashboard').style.display = 'flex';
             
             // Update KPIs
-            document.getElementById('kpiLocation').textContent = `${selectedMunicipality.Municipality}, ${selectedMunicipality.Province}`;
+            if (activeMode === 'single') {
+                document.getElementById('kpiLocation').textContent = `${selectedMunicipality.Municipality}, ${selectedMunicipality.Province}`;
+                document.getElementById('kpiLocation').style.fontSize = "1.25rem";
+            } else {
+                document.getElementById('kpiLocation').textContent = `${selectedMunicipality.Municipality}, ${selectedMunicipality.Province}`;
+                if (selectedMunicipality.Municipality.length > 20) {
+                    document.getElementById('kpiLocation').style.fontSize = "1.05rem";
+                } else {
+                    document.getElementById('kpiLocation').style.fontSize = "1.25rem";
+                }
+            }
             document.getElementById('kpiAffected').textContent = pop.toLocaleString();
             
             // 1. Sex disaggregation calculations (Ensuring exact sum to pop)
@@ -1212,8 +1727,9 @@ html_content = """<!DOCTYPE html>
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
             const url = URL.createObjectURL(blob);
+            const fileNameMun = selectedMunicipality.Municipality.replace(/[\s,()]+/g, "_");
             link.setAttribute("href", url);
-            link.setAttribute("download", `ACCORD_SADD_Estimate_${selectedMunicipality.Municipality}.csv`);
+            link.setAttribute("download", `ACCORD_SADD_Estimate_${fileNameMun}.csv`);
             link.style.visibility = 'hidden';
             document.body.appendChild(link);
             link.click();
