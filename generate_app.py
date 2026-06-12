@@ -578,7 +578,7 @@ html_content = """<!DOCTYPE html>
         }
     </style>
 </head>
-<body>
+<body class="light-theme">
     <header>
         <div class="logo-container">
             <img src='""" + logo_base64 + """' alt="ACCORD Logo" style="height: 2.5rem; border-radius: 0.25rem; background: white; padding: 2px;">
@@ -599,7 +599,7 @@ html_content = """<!DOCTYPE html>
                 <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
                 <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
             </svg>
-            <span id="themeToggleText">Light Mode</span>
+            <span id="themeToggleText">Dark Mode</span>
         </button>
     </header>
 
@@ -890,6 +890,10 @@ html_content = """<!DOCTYPE html>
                             <br><code>Female Count = Population - Male Count</code>
                         </li>
                         <li><strong>Age Cohort Distribution</strong>: Distributed independently for Male and Female cohorts using the <strong>Largest Remainder Method (Hamilton Method)</strong>. This avoids mathematical rounding errors and guarantees that the sum of the age cohorts matches the total male and female counts exactly.</li>
+                        <li><strong>Alternative Age Cohorts</strong>: When using the custom broad brackets (0 to 4, 5 to 17, 18 to 59, 60+), the standard PSA 15-19 year bracket is proportionally allocated. Since the bracket covers 5 single years, 60% (ages 15-17) is distributed to the <em>5 to 17</em> group, and 40% (ages 18-19) is distributed to the <em>18 to 59</em> group:
+                            <br><code>Ratio (5 to 17) = Ratio (5-9) + Ratio (10-14) + 0.6 * Ratio (15-19)</code>
+                            <br><code>Ratio (18 to 59) = 0.4 * Ratio (15-19) + Ratio (20-24) + ... + Ratio (55-59)</code>
+                        </li>
                     </ul>
                 </div>
 
@@ -913,6 +917,20 @@ html_content = """<!DOCTYPE html>
                             <br><code>Allocated Pop (Mun i) = Total Entered Pop * (Census Pop (Mun i) / Sum of Census Pops)</code>
                         </li>
                         <li><strong>Weighted Ratios</strong>: The synthetic municipality's ratios are computed as the weighted averages of the selected municipalities' ratios, weighted by their total, male, female, or 5+ populations respectively. This ensures that the aggregated estimates are mathematically equivalent to computing individual counts and summing them.</li>
+                    </ul>
+                </div>
+
+                <div class="info-section">
+                    <h3>Barangay Disaggregation Breakdown</h3>
+                    <p>When the <strong>Breakdown by Barangay</strong> option is enabled in Single Mode, Sex, Age, and Functional Difficulty estimates are calculated at the individual barangay level:</p>
+                    <ul>
+                        <li><strong>Projections per Barangay</strong>: Because census ratios are only available at the municipality level, each barangay uses the parent municipality's official Sex, Age, and Functional Difficulty ratios as a demographic proxy.</li>
+                        <li><strong>Rounding and Consistency</strong>: Proportional splits (e.g. sex and age cohorts) are calculated and rounded per barangay using the Largest Remainder Method (Hamilton Method). This ensures exact integer summation for each barangay individually.</li>
+                        <li><strong>Aggregated Results</strong>: The overall dashboard statistics (KPI cards, charts, and tables) are computed as the direct sum of the individual barangay-level projected counts.</li>
+                        <li><strong>Prevalence Aggregation</strong>: The estimated population with functional difficulty is calculated as:
+                            <br><code>Total Difficulty = &sum; max(Barangay_i_Domain_Counts_All)</code>
+                            This first applies the maximum domain count rule within each barangay to estimate unique individuals, and then sums these counts across all barangays.
+                        </li>
                     </ul>
                 </div>
             </div>
